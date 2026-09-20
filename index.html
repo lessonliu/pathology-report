@@ -289,6 +289,24 @@ function placeMarker(svg, img, s, x, y){
   markerMap[`${s.n}:${img.id}`] = {g, svg, img:img.id, x, y, w:img.w, h:img.h};
 }
 
+/* 低分辨率预览路径：nci/xxx.jpg|png -> nci_low/xxx.jpg */
+function lowRes(file){
+  return 'nci_low/' + file.split('/').pop().replace(/\.(jpe?g|png)$/i,'') + '.jpg';
+}
+
+/* 逐图渐进加载：先显示低清图，滚动到该图附近时再替换为原图 */
+const imgIO = new IntersectionObserver(entries=>{
+  entries.forEach(en=>{
+    if(!en.isIntersecting) return;
+    const im = en.target;
+    imgIO.unobserve(im);
+    const hi = new Image();
+    hi.decoding = 'async';
+    hi.onload = ()=>{ im.src = im.dataset.hi; im.classList.add('is-loaded'); };
+    hi.src = im.dataset.hi;
+  });
+}, {rootMargin:'600px 0px'});
+
 /* build figure panels + overlays + markers */
 IMAGES.forEach(img=>{
   const panel = document.createElement('section');
@@ -300,7 +318,10 @@ IMAGES.forEach(img=>{
   const figbox = document.createElement('div');
   figbox.className = "figbox";
   const im = document.createElement('img');
-  im.src = img.file; im.alt = img.title;
+  im.alt = img.title;
+  im.src = lowRes(img.file);   /* 先低清，原图滚动到附近再加载 */
+  im.dataset.hi = img.file;
+  imgIO.observe(im);
   const svg = document.createElementNS(ns,"svg");
   svg.setAttribute("viewBox", `0 0 ${img.w} ${img.h}`);
   svg.setAttribute("preserveAspectRatio","xMidYMid meet");
